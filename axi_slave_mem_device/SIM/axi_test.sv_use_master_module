@@ -1,0 +1,374 @@
+
+`timescale 1 ns / 1 ps
+longint unsigned ns_counter;
+longint unsigned clock_counter;
+
+module pure_axi_test_tb #(
+    // Parameters of Axi Slave Bus Interface AXI_data
+    parameter integer AXI_ID_WIDTH	= 2,
+    parameter integer AXI_DATA_WIDTH	= 32,
+    parameter integer AXI_ADDR_WIDTH	= 32,
+    parameter integer AXI_USER_WIDTH	= 10,
+    
+    parameter integer AXI_data_MEM_LENGTH	= 32,
+    
+    parameter TB_RESET_VALUE = 0
+);
+
+    //reg    
+    reg reset;
+    reg clk = 1'b0;
+
+
+    //sim use
+    bit [AXI_DATA_WIDTH - 1 : 0] all_input_list [256];
+
+    //master signals
+    reg [AXI_ADDR_WIDTH-1:0] master_instr_awaddr;
+    reg [7:0]                master_instr_awlen;
+    reg [1:0]                master_instr_awburst;
+    reg master_instr_aw_valid;
+    wire master_aw_flag;
+    wire [AXI_ADDR_WIDTH-1:0] master_w_opt_addr;
+    reg [AXI_DATA_WIDTH-1:0] master_write_data;
+    reg master_write_valid;
+    
+    reg [AXI_ADDR_WIDTH-1:0] master_instr_araddr;
+    reg [7:0]                master_instr_arlen;
+    reg [1:0]                master_instr_arburst;
+    reg master_instr_ar_valid;
+    wire master_ar_flag;
+    wire [AXI_ADDR_WIDTH-1:0] master_r_opt_addr;
+    wire [AXI_DATA_WIDTH-1:0] master_read_data;
+    wire master_read_valid;
+
+    //AXI wires
+    //{{{
+    wire [AXI_ID_WIDTH-1:0]    aw_id;
+    wire [AXI_ADDR_WIDTH-1:0]  aw_addr;
+    wire [7:0]                 aw_len;
+    wire [2:0]                 aw_size;
+    wire [1:0]                 aw_burst;
+    wire                       aw_lock;
+    wire [3:0]                 aw_cache;
+    wire [2:0]                 aw_prot;
+    wire [3:0]                 aw_qos;
+    wire [3:0]                 aw_region;
+    wire [AXI_USER_WIDTH-1:0]  aw_user;
+    wire                       aw_valid;
+    wire                       aw_ready;
+
+    wire [AXI_DATA_WIDTH-1:0]  w_data;
+    wire [3:0]                 w_strb;
+    wire                       w_last;
+    wire [AXI_USER_WIDTH-1:0]  w_user;
+    wire                       w_valid;
+    wire                       w_ready;
+    wire [AXI_ID_WIDTH-1:0]    w_id;
+    
+    wire [AXI_ID_WIDTH-1:0]    b_id;
+    wire [1:0]                 b_resp;
+    wire [AXI_USER_WIDTH-1:0]  b_user;
+    wire                       b_valid;
+    wire                       b_ready;
+
+    wire [AXI_ID_WIDTH-1:0]    ar_id;
+    wire [AXI_ADDR_WIDTH-1:0]  ar_addr;
+    wire [7:0]                 ar_len;
+    wire [2:0]                 ar_size;
+    wire [1:0]                 ar_burst;
+    wire                       ar_lock;
+    wire [3:0]                 ar_cache;
+    wire [2:0]                 ar_prot;
+    wire [3:0]                 ar_qos;
+    wire [3:0]                 ar_region;
+    wire [AXI_USER_WIDTH-1:0]  ar_user;
+    wire                       ar_valid;
+    wire                       ar_ready;
+
+
+    wire [AXI_ID_WIDTH-1:0]    r_id;
+    wire [AXI_DATA_WIDTH-1:0]  r_data;
+    wire [1:0]                 r_resp;
+    wire                       r_last;
+    wire [AXI_USER_WIDTH-1:0]  r_user;
+    wire                       r_valid;
+    wire                       r_ready; 
+    //}}} 
+    
+    bit [31:0] input_addr;
+    bit [31:0] output_addr;
+
+    bit [AXI_DATA_WIDTH - 1 : 0] input_list [256];
+    bit [AXI_DATA_WIDTH - 1 : 0] output_list [256];
+    bit [AXI_DATA_WIDTH - 1 : 0] golden_list [256];
+
+    //Instantiation of master_device 
+    //{{{
+    pure_AXI_master_design #(
+		.AXI_ID_WIDTH	        (AXI_ID_WIDTH	     ), 
+		.AXI_DATA_WIDTH	        (AXI_DATA_WIDTH	     ), 
+		.AXI_ADDR_WIDTH	        (AXI_ADDR_WIDTH	     ) 
+    ) AXI_MASTER (
+        //axi master data
+        //{{{
+		.awid        (aw_id    ),
+		.awaddr      (aw_addr),
+		.awlen       (aw_len   ),
+		.awsize      (aw_size  ),
+		.awburst     (aw_burst ),
+		.awlock      (aw_lock  ),
+		.awcache     (aw_cache ),
+		.awprot      (aw_prot  ),
+		.awqos       (aw_qos   ),
+		.awregion    (aw_region),
+		.awuser      (aw_user  ),
+		.awvalid     (aw_valid ),
+		.awready     (aw_ready ),
+		.wdata       (w_data    ),
+		.wstrb       (w_strb    ),
+		.wlast       (w_last    ),
+		.wuser       (w_user    ),
+		.wvalid	    (w_valid   ),
+		.wready	    (w_ready   ),
+		.bid		    (b_id	    ),
+		.bresp		(b_resp	),
+		.buser		(b_user	),
+		.bvalid	    (b_valid   ),
+		.bready	    (b_ready   ),
+		.arid		(ar_id	    ),
+		.araddr	    (ar_addr   ),
+		.arlen		(ar_len	),
+		.arsize	    (ar_size   ),
+		.arburst	    (ar_burst  ),
+		.arlock	    (ar_lock   ),
+		.arcache	    (ar_cache  ),
+		.arprot	    (ar_prot   ),
+		.arqos		(ar_qos	),
+		.arregion	(ar_region ),
+		.aruser	    (ar_user   ),
+		.arvalid	    (ar_valid  ),
+		.arready	    (ar_ready  ),
+		.rid		    (r_id	    ),
+		.rdata		(r_data	),
+		.rresp		(r_resp	),
+		.rlast		(r_last	),
+		.ruser		(r_user	),
+		.rvalid	    (r_valid   ),
+		.rready	    (r_ready   ),
+        //}}}
+        
+        .master_instr_awaddr   (master_instr_awaddr),
+        .master_instr_awlen    (master_instr_awlen),
+        .master_instr_awburst  (master_instr_awburst),
+        .master_instr_aw_valid (master_instr_aw_valid),
+       
+        .aw_flag               (master_aw_flag),
+        .w_opt_addr            (master_w_opt_addr),
+        .write_data            (master_write_data),
+        .write_valid           (master_write_valid),
+        
+        .master_instr_araddr   (master_instr_araddr),
+        .master_instr_arlen    (master_instr_arlen),
+        .master_instr_arburst  (master_instr_arburst),
+        .master_instr_ar_valid (master_instr_ar_valid),
+       
+        .ar_flag               (master_ar_flag),
+        .r_opt_addr            (master_r_opt_addr),
+        .read_data             (master_read_data),
+        .read_valid            (master_read_valid),
+
+		.clk                    (clk),
+		.rst_n                  (reset)
+    );
+    //}}}
+
+    //Instantiation of top_device 
+    //{{{
+    axi_slave_mem_device #(
+		.AXI_ID_WIDTH	        (AXI_ID_WIDTH	     ), 
+		.AXI_DATA_WIDTH	        (AXI_DATA_WIDTH	     ), 
+		.AXI_ADDR_WIDTH	        (AXI_ADDR_WIDTH	     ) 
+    ) AXI_DESIGN (
+        //axi slave data
+        //{{{
+		.clk                    (clk),
+		.rst_n                  (reset),
+		.AXI_slave_awid         (aw_id    ),
+		.AXI_slave_awaddr       (aw_addr),
+		.AXI_slave_awlen        (aw_len   ),
+		.AXI_slave_awsize       (aw_size  ),
+		.AXI_slave_awburst      (aw_burst ),
+		.AXI_slave_awlock       (aw_lock  ),
+		.AXI_slave_awcache      (aw_cache ),
+		.AXI_slave_awprot       (aw_prot  ),
+		.AXI_slave_awqos        (aw_qos   ),
+		.AXI_slave_awregion     (aw_region),
+		.AXI_slave_awuser       (aw_user  ),
+		.AXI_slave_awvalid      (aw_valid ),
+		.AXI_slave_awready      (aw_ready ),
+		.AXI_slave_wdata        (w_data    ),
+		.AXI_slave_wstrb        (w_strb    ),
+		.AXI_slave_wlast        (w_last    ),
+		.AXI_slave_wuser        (w_user    ),
+		.AXI_slave_wvalid	    (w_valid   ),
+		.AXI_slave_wready	    (w_ready   ),
+		.AXI_slave_bid		    (b_id	    ),
+		.AXI_slave_bresp		(b_resp	),
+		.AXI_slave_buser		(b_user	),
+		.AXI_slave_bvalid	    (b_valid   ),
+		.AXI_slave_bready	    (b_ready   ),
+		.AXI_slave_arid		    (ar_id	    ),
+		.AXI_slave_araddr	    (ar_addr   ),
+		.AXI_slave_arlen		(ar_len	),
+		.AXI_slave_arsize	    (ar_size   ),
+		.AXI_slave_arburst	    (ar_burst  ),
+		.AXI_slave_arlock	    (ar_lock   ),
+		.AXI_slave_arcache	    (ar_cache  ),
+		.AXI_slave_arprot	    (ar_prot   ),
+		.AXI_slave_arqos		(ar_qos	),
+		.AXI_slave_arregion	    (ar_region ),
+		.AXI_slave_aruser	    (ar_user   ),
+		.AXI_slave_arvalid	    (ar_valid  ),
+		.AXI_slave_arready	    (ar_ready  ),
+		.AXI_slave_rid		    (r_id	    ),
+		.AXI_slave_rdata		(r_data	),
+		.AXI_slave_rresp		(r_resp	),
+		.AXI_slave_rlast		(r_last	),
+		.AXI_slave_ruser		(r_user	),
+		.AXI_slave_rvalid	    (r_valid   ),
+		.AXI_slave_rready	    (r_ready   )
+        //}}}
+        
+    ); 
+    //}}}
+
+/*
+always @(*) begin
+    master_write_data = input_list[master_w_opt_addr];
+    master_write_valid = master_aw_flag;
+end
+*/
+
+always @( posedge clk )
+begin
+    if ( reset == 1'b0 ) begin
+        master_write_data <= 0;
+    end
+    else begin
+        master_write_valid <= master_aw_flag;
+        if (master_aw_flag == 1) begin
+            master_write_data <= input_list[master_w_opt_addr];
+        end
+
+    end
+end
+
+initial begin
+    
+    int i, j;
+    string config_input_hex_file;
+
+
+    while (reset == TB_RESET_VALUE) begin
+        @(posedge clk);
+    end
+
+    @(posedge clk);
+    @(posedge clk);
+
+    for (i = 0; i < 16; i ++) begin
+        input_list[i] = i;
+    end
+
+    @(posedge clk);
+    @(posedge clk);
+    @(posedge clk);
+    master_instr_awaddr = 0;
+    master_instr_awlen = 15;
+    master_instr_awburst = 2'b01;
+    master_instr_aw_valid = 1;
+
+    @(posedge clk);
+    master_instr_aw_valid = 0;
+    @(posedge clk);
+    @(posedge clk);
+    while (master_aw_flag == 1) begin
+        @(posedge clk);
+    end
+
+    for (i = 0; i < 16; i ++) begin
+        @(posedge clk);
+    end
+    
+    master_instr_araddr = 0;
+    master_instr_arlen = 15;
+    master_instr_arburst = 2'b01;
+    master_instr_ar_valid = 1;
+
+    @(posedge clk);
+    master_instr_ar_valid = 0;
+
+    @(posedge clk);
+    for (i = 0; i < 20; i ++) begin
+        @(posedge clk);
+        if (master_ar_flag == 1) begin
+            $display ("master ar flag");
+            if (master_read_valid == 1) begin
+                $display ("read data: %x, %x", master_r_opt_addr, master_read_data);
+            end
+        end
+
+    end
+    
+
+
+end
+
+
+always @(*) begin
+    master_write_data = input_list[master_w_opt_addr];
+    master_write_valid = master_aw_flag;
+end
+
+//reset
+//{{{
+initial begin
+    reset = TB_RESET_VALUE;
+    #20;
+    reset = ~TB_RESET_VALUE;
+    //messager.dump_message("sim start");
+    //#500000;
+    #10000;
+    //messager.dump_message("sim end");
+    $finish;
+end
+//}}}
+
+//clk
+//{{{
+initial begin
+    clk = 0;
+    clock_counter = 0;
+    ns_counter = 0;
+    forever begin
+        #5 clk ^= 1;
+        ns_counter += 5;
+        #5 clk ^= 1;
+        ns_counter += 5;
+        clock_counter += 1;
+    end
+end
+//}}}
+
+//waveform
+//{{{
+initial begin
+    $vcdplusfile("waveforms.vpd");
+    $vcdpluson();
+    $vcdplusmemon();
+end
+//}}}
+
+
+endmodule

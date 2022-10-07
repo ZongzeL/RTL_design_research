@@ -1,0 +1,24 @@
+10/4
+第一个实验成功了，这个实验有几个点：
+1. slave，master两个信号生成模块
+    这两个东西不负责任何地址翻译，只做无效地址拦截。
+        作为slave，发有效请求就起ar/aw_ready，就收了这个请求。无效请求就不起。至于为什么无效不是slave的事。
+        作为master，也有一个addr range，外面发一个master用的操作包，这个包如果在这个master的range里那就说明这是个有效的request，则起master控制，如果这个包没用，那就放在master的reg里不用理它。
+    只要是有效的请求，它们就相应，发对应的w/r_opt_addr，这个opt_addr是带着他们自己的offset的，也就是addr range的st，外面怎么用那是外面的事。
+    现在这两个slave master已经完工了，master的操作包可能信息不够，可能还得根据新的要求重新加信息。但是暂时可以先这么用。
+
+
+
+2. 一个slave memory
+    这个东西不是slave，是带slave的design。它需要负责对addr的翻译。它的slave module的offset应该是它给的，那么它就得负责翻译那个offset。它从slave module拿到了w/r_opt_addr以后要 - (offset >> 2)
+
+3. 一个top design
+    这个top design有一个slave和一个master。它的master接slave memory。它的slave用来接一些config，in_data 和读out_data。 
+        这个top design本质上不是DMA，DMA是有一个全双工的master，可以同时发AR，AW，在R的同时把R得到的数据写给W。如果需要这样的一个DMA，那它的master需要单独设计。可能我的master可以通过一点小改动支持这个全双工的功能。但是10/4这一天我还没这个功能。
+    这个top design也是有addr range的，再高一层（比如cpu）如果写req的时候不在这个range里，top design的slave就不响应它了。
+    
+注意： 
+    现在slave和master都不支持strb不为全f的情况，
+    master发不出。其实master支持也简单，看w_opt_addr去控制，但是这由于涉及组合逻辑，所以可能面积不小。
+    slave其实支持把strb拉出来，slave也不关心strb。
+
