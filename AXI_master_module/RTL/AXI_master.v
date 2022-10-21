@@ -50,6 +50,7 @@
 	    
         parameter integer ADDR_LSB = $clog2(AXI_DATA_WIDTH/8), //2
         parameter integer ADDR_BASE_OFFSET = 0,
+        parameter integer SIZE = $clog2(AXI_DATA_WIDTH / 8), //2
 
 	    parameter integer ADDR_ST  = 'h0 + ADDR_BASE_OFFSET,
 	    parameter integer ADDR_END  = 'h400 + ADDR_BASE_OFFSET
@@ -339,13 +340,13 @@ begin
     else begin   
         if (have_valid_aw_instr == 1 &&
             AXI_awready == 0 &&
-            axi_aw_flag == 1'b0 &&
-            axi_ar_flag == 1'b0 
+            //axi_ar_flag == 1'b0 && 
+            axi_aw_flag == 1'b0 
         ) begin
             AXI_awaddr  <= master_instr_awaddr;
             AXI_awlen   <= master_instr_awlen;
             AXI_awburst <= master_instr_awburst;
-            AXI_awsize  <= 3'd4; 
+            AXI_awsize  <= SIZE; 
             AXI_awvalid <= 1;
         end
         else begin
@@ -376,8 +377,8 @@ begin
         if (
             have_valid_aw_instr == 1 &&
             AXI_awready == 1'b0 &&
-            axi_aw_flag == 1'b0 &&
-            axi_ar_flag == 1'b0 
+            //axi_ar_flag == 1'b0 &&
+            axi_aw_flag == 1'b0 
         ) begin
             instr_awaddr <= master_instr_awaddr[AXI_ADDR_WIDTH - 1:0];  
             instr_awburst <= master_instr_awburst; 
@@ -510,13 +511,13 @@ begin
         if (
             have_valid_ar_instr == 1 &&
             AXI_arready == 1'b0 &&
-            axi_ar_flag == 1'b0 &&
-            axi_aw_flag == 1'b0 
+            //axi_aw_flag == 1'b0 &&
+            axi_ar_flag == 1'b0 
         ) begin
             AXI_araddr  <= master_instr_araddr;
             AXI_arlen   <= master_instr_arlen;
             AXI_arburst <= master_instr_arburst;
-            AXI_arsize  <= 3'd4; 
+            AXI_arsize  <= SIZE; 
             AXI_arvalid <= 1;
         end
         else begin
@@ -546,8 +547,8 @@ begin
         if (
             have_valid_ar_instr == 1 &&
             AXI_arready == 1'b0 &&
-            axi_ar_flag == 1'b0 &&
-            axi_aw_flag == 1'b0 
+            //axi_aw_flag == 1'b0 &&
+            axi_ar_flag == 1'b0 
         ) begin
             instr_araddr <= master_instr_araddr[AXI_ADDR_WIDTH - 1:0];  
             instr_arburst <= master_instr_arburst; 

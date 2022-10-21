@@ -8,7 +8,7 @@ slave接了那个aw/ar，就要忠实的翻译成对应的r/w_opt_addr，至于t
 
 `timescale 1 ns / 1 ps
 
-	module pure_AXI_slave_design #
+	module axi_slave_mem_wrap #
 	(
 		parameter integer AXI_ID_WIDTH	= 1,
 		parameter integer AXI_DATA_WIDTH	= 32,
@@ -21,6 +21,8 @@ slave接了那个aw/ar，就要忠实的翻译成对应的r/w_opt_addr，至于t
         parameter integer OPT_MEM_ADDR_BITS     = $clog2(DATA_MEM_LENGTH),
 	    parameter integer ADDR_LSB = $clog2(AXI_DATA_WIDTH/8), //2
         parameter integer ADDR_BASE_OFFSET = 0,
+
+        parameter integer FIFO_LENGTH = 4,
 
 	    parameter integer ADDR_ST  = 'h0 + ADDR_BASE_OFFSET,
 	    parameter integer ADDR_END  = 'h400 + ADDR_BASE_OFFSET
@@ -81,27 +83,24 @@ slave接了那个aw/ar，就要忠实的翻译成对应的r/w_opt_addr，至于t
         input                       rready,
 
         //}}}
-       
 
-        //eight useful signals
-        output reg [AXI_DATA_WIDTH - 1 : 0]   write_data,
-        output reg [3 : 0]                    write_strb,
-        output reg [AXI_ADDR_WIDTH - 1 : 0]   w_opt_addr,
-        output reg write_valid,
- 
-        output wire [AXI_ADDR_WIDTH - 1 : 0]   r_opt_addr,
-        output wire ar_flag,
-        input  wire [AXI_DATA_WIDTH - 1 : 0]   read_data,
-	    input  wire read_valid, 
-
-        input aw_ar_ready,
-
+        output wire                         data_req_o,                   
+        output reg [AXI_ADDR_WIDTH-1:0]     data_add_o,
+        output wire                         data_wen_o,
+        output wire [AXI_DATA_WIDTH-1:0]    data_wdata_o,
+        output wire [AXI_STRB_WIDTH - 1:0]  data_be_o,
+        input  wire                         data_gnt_i, 
+        input  wire                         data_r_valid_i,
+        input  wire [AXI_DATA_WIDTH-1:0]    data_r_rdata_i,      
 
  
         input wire  clk,
 		input wire  rst_n
 	);
 
+    localparam integer ADDR_INPUT_ST    = ADDR_BASE_OFFSET >> ADDR_LSB;	
+    localparam integer ADDR_INPUT_END   = (ADDR_BASE_OFFSET + 'h100) >> ADDR_LSB;	
+   
 
  
     //AXI signals
@@ -207,6 +206,18 @@ slave接了那个aw/ar，就要忠实的翻译成对应的r/w_opt_addr，至于t
     assign  rvalid      = AXI_rvalid;
     assign  AXI_rready  = rready;
     //}}}
+    
+    //eight useful signals
+    reg [AXI_DATA_WIDTH - 1 : 0]   write_data;
+    reg [3 : 0]                    write_strb;
+    reg [AXI_ADDR_WIDTH - 1 : 0]   w_opt_addr;
+    reg write_valid;
+ 
+    wire [AXI_ADDR_WIDTH - 1 : 0]   r_opt_addr;
+    wire ar_flag;
+    wire [AXI_DATA_WIDTH - 1 : 0]   read_data;
+	wire read_valid;
+
 
     //wire
 	wire aw_wrap_en;
@@ -217,19 +228,46 @@ slave接了那个aw/ar，就要忠实的翻译成对应的r/w_opt_addr，至于t
     //reg	
     reg [AXI_ADDR_WIDTH - 1 : 0] 	instr_awaddr;
 	reg [AXI_ADDR_WIDTH - 1 : 0] 	instr_araddr;
+	reg [AXI_ADDR_WIDTH - 1 : 0] 	instr_araddr_init;
 
     reg axi_ar_flag;
     reg axi_aw_flag;
 
 	reg [7:0] instr_awlen_cntr;
-	reg [7:0] instr_arlen_cntr;
+	reg [7:0] instr_arlen_cntr_in;
+	reg [7:0] instr_arlen_cntr_out;
 	reg [1:0] instr_arburst;
 	reg [1:0] instr_awburst;
 	reg [7:0] instr_arlen;
 	reg [7:0] instr_awlen;
 
 
-	
+    //fifo signals
+    //{{{
+    wire fifo_read;
+    wire fifo_write;
+    wire fifo_empty;
+    wire fifo_full;
+   
+
+ 
+    wire [AXI_DATA_WIDTH-1:0] fifo_input_data;
+    wire [AXI_DATA_WIDTH-1:0] fifo_output_data;
+    
+    assign fifo_read = AXI_rready & AXI_rvalid;
+    assign fifo_write = data_r_valid_i && axi_ar_flag;
+    assign fifo_input_data = data_r_rdata_i;
+    //}}}	
+
+    wire read_req;
+
+    assign read_req =   (ar_flag == 1 && 
+                        //fifo_full == 0 &&
+                        instr_arlen_cntr_in - instr_arlen_cntr_out < FIFO_LENGTH &&
+                        (instr_arlen_cntr_in <= instr_arlen)
+                        );
+    assign data_req_o = write_valid || read_req;
+    //assign data_req_o = write_valid || (ar_flag == 1 && fifo_full == 0);
 
 	// I/O Connections assignments
 
@@ -241,233 +279,100 @@ assign  aw_wrap_size = (AXI_DATA_WIDTH/8 * (instr_awlen));
 assign  ar_wrap_size = (AXI_DATA_WIDTH/8 * (instr_arlen)); 
 assign  aw_wrap_en = ((instr_awaddr & aw_wrap_size) == aw_wrap_size)? 1'b1: 1'b0;
 assign  ar_wrap_en = ((instr_araddr & ar_wrap_size) == ar_wrap_size)? 1'b1: 1'b0;
-
-
 //}}}
 
+    //Instantiation of fifo
+    //{{{
+    fifo #(
+        .DATA_BITS (AXI_DATA_WIDTH),
+        .FIFO_LENGTH (FIFO_LENGTH)
+    ) FIFO (
+        .input_data     (fifo_input_data),
+        .output_data    (fifo_output_data),
+        .read           (fifo_read),
+        .write          (fifo_write),
+        .empty          (fifo_empty),
+        .full           (fifo_full),
+
+        
+        .clk                    (clk),
+		.reset                  (rst_n)
+    ); 
+    //}}}
+
+always @(*) begin
+    if (write_valid == 1) begin
+        data_add_o = w_opt_addr;
+    end
+    else if (ar_flag) begin
+        data_add_o = r_opt_addr;
+    end
+    else begin
+        data_add_o = 0;
+    end
+end
+
+
+
+`include "write.svh"
+
+
 //eight useful signals: read
-assign AXI_rdata = read_data; 
-assign r_opt_addr = instr_araddr [AXI_ADDR_WIDTH - 1:ADDR_LSB];
+assign rdata = read_data; 
+assign r_opt_addr = instr_araddr_init [AXI_ADDR_WIDTH - 1:ADDR_LSB] + instr_arlen_cntr_in;
 assign ar_flag = axi_ar_flag;
 assign AXI_rvalid = AXI_rvalid_w & read_valid;
 
-//eight useful signals: write, use ff to buffer wdata
-//{{{
-//assign write_data = AXI_wdata;
-//assign write_strb = AXI_wstrb;
-//assign w_opt_addr = instr_awaddr [AXI_ADDR_WIDTH - 1:ADDR_LSB];
-//assign write_valid = (AXI_wready == 1 && AXI_wvalid == 1) ? 1 : 0;
-always @(posedge clk) begin
+//memory
+assign read_data = fifo_output_data;
+assign read_valid = ~fifo_empty;  
+ 
+`include "read.svh"
+
+always @( posedge clk ) begin
     if ( rst_n == 1'b0 ) begin
-        write_data <= 0;
-        write_strb <= 0;
-        w_opt_addr <= 0;
-        write_valid <= 0;
+        instr_arlen_cntr_out <= 0;
     end
     else begin
-        if (AXI_wready == 1 && AXI_wvalid == 1) begin
-            write_data <= AXI_wdata;
-            write_strb <= AXI_wstrb;
-            w_opt_addr <= instr_awaddr [AXI_ADDR_WIDTH - 1:ADDR_LSB];
-            write_valid <= 1;
-        end 
-        else begin
-            write_valid <= 0;
-        end
-    end
-end
-//}}}
-
-//awready
-//{{{
-always @( posedge clk )
-begin
-    if ( rst_n == 1'b0 ) begin
-        AXI_awready <= 1'b0;
-        axi_aw_flag <= 1'b0;
-    end 
-    else begin    
         if (
-            aw_ar_ready == 1'b1 &&
-            AXI_awready == 1'b0 &&
-            AXI_awvalid == 1'b1 && 
-            axi_aw_flag == 1'b0 &&
-            axi_ar_flag == 1'b0 &&
-            AXI_awaddr < ADDR_END &&
-            AXI_awaddr >= ADDR_ST
-        ) begin
-            axi_aw_flag  <= 1'b1; 
-        end
-        else if (AXI_wlast == 1'b1 && AXI_wready == 1'b1) begin    
-            axi_aw_flag  <= 1'b0;
-        end
-        if (
-            aw_ar_ready == 1'b1 &&
-            AXI_awready == 1'b0 &&
-            AXI_awvalid == 1'b1 && 
-            axi_aw_flag == 1'b0 &&
-            axi_ar_flag == 1'b0 &&
-            AXI_awaddr < ADDR_END &&
-            AXI_awaddr >= ADDR_ST
-        ) begin
-            AXI_awready <= 1'b1;
-        end
-        else begin
-            AXI_awready <= 1'b0;
-        end
-    end 
-end      
-//}}}
-
-//instr_aw
-//{{{
-always @( posedge clk )
-begin
-    if ( rst_n == 1'b0 ) begin
-        instr_awaddr <= 0;
-        instr_awlen_cntr <= 0;
-        instr_awburst <= 0;
-        instr_awlen <= 0;
-    end 
-    else begin    
-        if (
-            aw_ar_ready == 1'b1 &&
-            AXI_awready == 1'b0 &&
-            AXI_awvalid == 1'b1 && 
-            axi_aw_flag == 1'b0 &&
-            axi_ar_flag == 1'b0 &&
-            AXI_awaddr < ADDR_END &&
-            AXI_awaddr >= ADDR_ST
-        ) begin
-            instr_awaddr <= AXI_awaddr[AXI_ADDR_WIDTH - 1:0];  
-            instr_awburst <= AXI_awburst; 
-            instr_awlen <= AXI_awlen;     
-            // start address of transfer
-            instr_awlen_cntr <= 0;
-        end   
-        else if((instr_awlen_cntr <= instr_awlen) && AXI_wready && AXI_wvalid) begin
-            instr_awlen_cntr <= instr_awlen_cntr + 1;
-            case (instr_awburst)
-            2'b00: // fixed burst
-                begin
-                    instr_awaddr <= instr_awaddr;          
-                end   
-            2'b01: //incremental burst
-                begin
-                    instr_awaddr[AXI_ADDR_WIDTH - 1:ADDR_LSB] <= instr_awaddr[AXI_ADDR_WIDTH - 1:ADDR_LSB] + 1;
-                    instr_awaddr[ADDR_LSB-1:0]  <= {ADDR_LSB{1'b0}};   
-                end   
-            2'b10: //Wrapping burst
-                if (aw_wrap_en) begin
-                    instr_awaddr <= (instr_awaddr - aw_wrap_size); 
-                end
-                else begin
-                    instr_awaddr[AXI_ADDR_WIDTH - 1:ADDR_LSB] <= instr_awaddr[AXI_ADDR_WIDTH - 1:ADDR_LSB] + 1;
-                    instr_awaddr[ADDR_LSB-1:0]  <= {ADDR_LSB{1'b0}}; 
-                end                      
-            default: //reserved (incremental burst for example)
-                begin
-                    instr_awaddr <= instr_awaddr[AXI_ADDR_WIDTH - 1:ADDR_LSB] + 1;
-                end
-            endcase              
-        end
-    end 
-end      
-//}}}
- 
-//wready
-//{{{
-always @( posedge clk )
-begin
-    if ( rst_n == 1'b0 ) begin
-        AXI_wready <= 1'b0;
-    end 
-    else begin    
-        if (axi_aw_flag == 1'b1) begin
-            if (AXI_wready == 1'b0) begin
-                AXI_wready <= 1'b1;
-            end
-        end
-        if (AXI_wlast && AXI_wready) begin
-            AXI_wready <= 1'b0;
-        end
-    end 
-end      
-//}}}
- 
-//WRITE_RESP (B)
-//{{{
-always @( posedge clk ) begin
-    if ( rst_n == 1'b0 ) begin
-        AXI_bvalid <= 0;
-        AXI_bresp <= 2'b0;
-        AXI_buser <= 0;
-    end 
-    else begin    
-        if (axi_aw_flag && AXI_wready && AXI_wvalid && ~AXI_bvalid && AXI_wlast ) begin
-            AXI_bvalid <= 1'b1;
-            AXI_bresp  <= 2'b0; 
-        end                   
-        else begin
-            if (AXI_bready && AXI_bvalid) begin
-                AXI_bvalid <= 1'b0; 
-            end  
-        end
-    end
- end 
-
-always @( posedge clk or negedge rst_n ) begin
-    if ( rst_n == 1'b0 ) begin
-        AXI_bid   <= 1'b0;
-    end 
-    else begin           
-        if (axi_aw_flag == 1'b1) begin
-            AXI_bid <= AXI_awid;
-        end
-    end
-end
- 
-//}}}
- 
-//arready
-//{{{   
-always @( posedge clk ) begin
-    if ( rst_n == 1'b0 ) begin
-        AXI_arready <= 1'b0;
-        axi_ar_flag <= 1'b0;
-    end 
-    else begin    
-        if (
-            aw_ar_ready == 1'b1 &&
             AXI_arready == 1'b0 && 
             AXI_arvalid == 1'b1 && 
-            axi_aw_flag == 1'b0 && 
-            axi_ar_flag == 1'b0 &&
-            AXI_araddr < ADDR_END &&
-            AXI_araddr >= ADDR_ST
-        ) begin
-            axi_ar_flag <= 1'b1;
-        end
-        else if (AXI_rlast == 1'b1 && AXI_rready == 1'b1 ) begin
-            axi_ar_flag  <= 1'b0;
-        end
-        if (
-            aw_ar_ready == 1'b1 &&
-            AXI_arready == 1'b0 && 
-            AXI_arvalid == 1'b1 && 
-            axi_aw_flag == 1'b0 && 
+            //axi_aw_flag == 1'b0 && 
             axi_ar_flag == 1'b0 && 
             AXI_araddr < ADDR_END &&
             AXI_araddr >= ADDR_ST
         ) begin
-            AXI_arready <= 1'b1;
+            instr_arlen_cntr_out <= 0;
         end
-        else begin
-            AXI_arready <= 1'b0;
+        else if((instr_arlen_cntr_out <= instr_arlen) && AXI_rvalid == 1 && AXI_rready ) begin
+            instr_arlen_cntr_out <= instr_arlen_cntr_out + 1;
         end
-    end 
-end      
-//}}}
+
+    end
+end
+
+always @( posedge clk ) begin
+    if ( rst_n == 1'b0 ) begin
+        instr_arlen_cntr_in <= 0;
+    end
+    else begin
+        if (
+            AXI_arready == 1'b0 && 
+            AXI_arvalid == 1'b1 && 
+            //axi_aw_flag == 1'b0 && 
+            axi_ar_flag == 1'b0 && 
+            AXI_araddr < ADDR_END &&
+            AXI_araddr >= ADDR_ST
+        ) begin
+            instr_arlen_cntr_in <= 0;
+        end
+        else if(read_req) begin
+            instr_arlen_cntr_in <= instr_arlen_cntr_in + 1;
+        end
+    end
+end
+
+
 
 //instr_ar
 //{{{
@@ -475,28 +380,25 @@ end
 always @( posedge clk ) begin
     if ( rst_n == 1'b0 ) begin
         instr_araddr <= 0;
-        instr_arlen_cntr <= 0;
+        instr_araddr_init <= 0;
         instr_arburst <= 0;
         instr_arlen <= 0;
     end 
     else begin    
         if (
-            aw_ar_ready == 1'b1 &&
             AXI_arready == 1'b0 && 
             AXI_arvalid == 1'b1 && 
-            axi_aw_flag == 1'b0 && 
+            //axi_aw_flag == 1'b0 && 
             axi_ar_flag == 1'b0 && 
             AXI_araddr < ADDR_END &&
             AXI_araddr >= ADDR_ST
         ) begin
             instr_araddr <= AXI_araddr[AXI_ADDR_WIDTH - 1:0]; 
+            instr_araddr_init <= AXI_araddr[AXI_ADDR_WIDTH - 1:0]; 
             instr_arburst <= AXI_arburst; 
             instr_arlen <= AXI_arlen;     
-            instr_arlen_cntr <= 0;
         end   
-        else if((instr_arlen_cntr <= instr_arlen) && AXI_rvalid && AXI_rready) begin
-            instr_arlen_cntr <= instr_arlen_cntr + 1;
-        
+        else if((instr_arlen_cntr_out <= instr_arlen) && AXI_rvalid == 1 && AXI_rready ) begin
             case (instr_arburst)
             2'b00: // fixed burst
                 begin
@@ -526,116 +428,7 @@ always @( posedge clk ) begin
 end       
 //}}}
 
-/* 
-//{{{
-always @( posedge clk ) begin
-    if ( rst_n == 1'b0 ) begin
-        instr_arburst <= 0;
-        instr_arlen <= 0;
-    end 
-    else begin    
-        if (
-            aw_ar_ready == 1'b1 &&
-            AXI_arready == 1'b0 && 
-            AXI_arvalid == 1'b1 && 
-            axi_aw_flag == 1'b0 && 
-            axi_ar_flag == 1'b0 && 
-            AXI_araddr < ADDR_END &&
-            AXI_araddr >= ADDR_ST
-        ) begin
-            instr_arburst <= AXI_arburst; 
-            instr_arlen <= AXI_arlen;     
-        end   
-    end 
-end       
 
-//}}}
-
-//{{{
-always @(*) begin
-    if ( rst_n == 1'b0 ) begin
-        instr_araddr = 0;
-        instr_arlen_cntr = 0;
-    end 
-    else begin    
-        if (
-            aw_ar_ready == 1'b1 &&
-            AXI_arready == 1'b0 && 
-            AXI_arvalid == 1'b1 && 
-            axi_aw_flag == 1'b0 && 
-            axi_ar_flag == 1'b0 && 
-            AXI_araddr < ADDR_END &&
-            AXI_araddr >= ADDR_ST
-        ) begin
-            instr_araddr = AXI_araddr[AXI_ADDR_WIDTH - 1:0]; 
-            instr_arlen_cntr = 0;
-        end   
-        else if((instr_arlen_cntr <= instr_arlen) && AXI_rvalid && AXI_rready) begin
-            instr_arlen_cntr = instr_arlen_cntr + 1;
-        
-            case (instr_arburst)
-            2'b00: // fixed burst
-                begin
-                    instr_araddr       = instr_araddr;        
-                end   
-            2'b01: //incremental burst
-                begin
-                    instr_araddr[AXI_ADDR_WIDTH - 1:ADDR_LSB] = instr_araddr[AXI_ADDR_WIDTH - 1:ADDR_LSB] + 1; 
-                    instr_araddr[ADDR_LSB-1:0]  = {ADDR_LSB{1'b0}};   
-                end   
-            2'b10: //Wrapping burst
-                if (ar_wrap_en) begin
-                    instr_araddr = (instr_araddr - ar_wrap_size); 
-                end
-                else begin
-                    instr_araddr[AXI_ADDR_WIDTH - 1:ADDR_LSB] = instr_araddr[AXI_ADDR_WIDTH - 1:ADDR_LSB] + 1; 
-                //araddr aligned to 4 byte boundary
-                    instr_araddr[ADDR_LSB-1:0]  = {ADDR_LSB{1'b0}};   
-                end                      
-            default: //reserved (incremental burst for example)
-                begin
-                    instr_araddr = instr_araddr[AXI_ADDR_WIDTH - 1:ADDR_LSB]+1;
-                end
-            endcase              
-        end
-    end 
-end       
-//}}}
-*/
-
-//rlast
-//{{{
-always @(*) begin
-    AXI_ruser = 1'b0;
-    if(instr_arlen_cntr == instr_arlen && AXI_rvalid == 1) begin
-        AXI_rlast = 1'b1;
-    end       
-    else begin
-        AXI_rlast = 1'b0;
-    end   
-end
-//}}}
-
-//rvalid_w
-//{{{    
-always @( posedge clk ) begin
-    if ( rst_n == 1'b0 ) begin
-        AXI_rvalid_w <= 0;
-        AXI_rresp  <= 0;
-    end 
-    else begin    
-        if (axi_ar_flag && ~AXI_rvalid_w) begin
-            AXI_rvalid_w <= 1'b1;
-            AXI_rresp  <= 2'b0; 
-        end   
-        //else if (rvalid && rready && instr_arlen_cntr == instr_arlen) begin
-        else if (AXI_rlast && AXI_rready) begin
-            AXI_rvalid_w <= 1'b0;
-            AXI_rresp  <= 2'b0; 
-        end            
-    end
-end
-//}}}
 
 
 

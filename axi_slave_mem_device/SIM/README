@@ -1,0 +1,1 @@
+这里有两个tb，一个用master module去drive slave interface，一个用AXI slave tb lib 去drive，用 AXI slave tb lib去drive更简单。

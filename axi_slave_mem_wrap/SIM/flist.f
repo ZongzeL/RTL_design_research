@@ -8,12 +8,15 @@
 -f ../../FLISTS/tb_lib.f
 
 #axi design
-../RTL/axi_slave_mem_device.v
-../../AXI_slave_module/RTL/AXI_slave.v
-../../AXI_slave_module/RTL/AXI_slave_AW_module.v
-../../AXI_slave_module/RTL/AXI_slave_AR_module.v
-../../AXI_master_module/RTL/AXI_master.v
+
+../../BRAM_module/BRAM_wrap/BRAM_wrap.v
+../../BRAM_module/RTL/bram.v
 ../../FIFO/RTL/fifo.v
+
+../RTL/axi_slave_mem_wrap.v
+#../../AXI_slave_module/RTL/AXI_slave.v
+#../../AXI_master_module/RTL/AXI_master.v
+
 
 ./axi_test.sv
 

@@ -1,0 +1,10 @@
+10/7
+
+master 和slave都搞成可以全双工了，现在可以尝试写一个DMA模块了
+DMA模块其实和那个top_design差不多，都是一个slave一个master
+DMA模块可以有以下几个功能：
+    1. 和top design一样，input，写给slave mem
+    2. 从slave mem读出来，用output 读出来
+    3. DMA功能，就是先从一个地方读，再写给一个地方，就要求状态机先发AR，然后马上发AW，在读的时候要有个fifo buffer存下来，这个buffer不需要大，但是它的full要能连到master 的r ready上，以及它的empty要能连到master的 w valid上。
+
+

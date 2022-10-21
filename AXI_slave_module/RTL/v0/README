@@ -1,0 +1,1 @@
+这是v0版，直读，没有read_req_valid那种信号，read data用组合逻辑就读进来了。

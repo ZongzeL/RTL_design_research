@@ -1,3 +1,4 @@
+//axi_test.sv_use_master_module
 
 `timescale 1 ns / 1 ps
 longint unsigned ns_counter;
@@ -284,32 +285,26 @@ initial begin
     @(posedge clk);
     @(posedge clk);
     @(posedge clk);
+    
     master_instr_awaddr = 0;
     master_instr_awlen = 15;
     master_instr_awburst = 2'b01;
-    master_instr_aw_valid = 1;
-
-    @(posedge clk);
-    master_instr_aw_valid = 0;
-    @(posedge clk);
-    @(posedge clk);
-    while (master_aw_flag == 1) begin
-        @(posedge clk);
-    end
-
-    for (i = 0; i < 16; i ++) begin
-        @(posedge clk);
-    end
-    
     master_instr_araddr = 0;
     master_instr_arlen = 15;
     master_instr_arburst = 2'b01;
+    
+    master_instr_aw_valid = 1;
+    @(posedge clk);
+    master_instr_aw_valid = 0;
+    
+    @(posedge clk);
+    
     master_instr_ar_valid = 1;
-
     @(posedge clk);
     master_instr_ar_valid = 0;
-
+    
     @(posedge clk);
+
     for (i = 0; i < 20; i ++) begin
         @(posedge clk);
         if (master_ar_flag == 1) begin

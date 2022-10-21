@@ -1,13 +1,16 @@
 /*
-    这个东西本质上不是AXI slave，是一个带AXI slave的device。AXI slave模块把收到的合法的addr range里的ar/aw传过来，不负责翻译。那么翻译的过程就应该在这里。
+    写没有问题
+    读因为有两个cycle的latency，为了保证速度，就是一个cycle从外面的memory里读一个数据，必须要让addr一个cycle往前推一个，但是又不能不分青红皂白的让AXI_SLAVE module的instr_arlen_cntr往前推，需要有一个buffer存下来。
+    这个wrap在得到AXI slave module的读指令后，自己有个下标先推，推到fifo满了为止。
+    AXI slave的下标一变，等于前个数收了，fifo可以pop了
+    fifo只要不full，local的读 mem addr就加，这样只要fifo长度比latency长，理论上肯定能保证速度。
     
-    10/20/22：将pure_AXI_slave_module更新到最新，使用FIFO作为AR buffer以后，不管用时序逻辑还是组合逻辑做的read data都可以支持了。使用时序逻辑和组合逻辑的区别就是有一个cycle的latency，用了AR FIFO以后这个latency已经无所谓了。
 
 */
 
 `timescale 1 ns / 1 ps
 
-	module axi_slave_mem_device #
+	module axi_slave_mem_wrap #
     (
 		parameter integer AXI_ID_WIDTH	= 1,
 		parameter integer AXI_DATA_WIDTH	= 32,
@@ -24,8 +27,6 @@
 	    parameter integer ADDR_END  = 'h400 + ADDR_BASE_OFFSET
     )
 	(
-        input wire  clk,
-		input wire  rst_n,
 
         //`include "AXI_IO_define.svh"
         //{{{
@@ -78,25 +79,55 @@
         output wire                      AXI_slave_rlast,
         output wire [AXI_USER_WIDTH-1:0] AXI_slave_ruser,
         output wire                      AXI_slave_rvalid,
-        input wire                       AXI_slave_rready 
+        input wire                       AXI_slave_rready,
 
         //}}}
+        //memory wrap signals 
+        output wire                         data_req_o,                   
+        output reg [AXI_ADDR_WIDTH-1:0]     data_add_o,
+        output wire                         data_wen_o,
+        output wire [AXI_DATA_WIDTH-1:0]    data_wdata_o,
+        output wire [AXI_STRB_WIDTH - 1:0]  data_be_o,
+        input  wire                         data_gnt_i, 
+        input  wire                         data_r_valid_i,
+        input  wire [AXI_DATA_WIDTH-1:0]    data_r_rdata_i,      
+
+        input wire  clk,
+		input wire  rst_n
 	);
 
     localparam integer ADDR_INPUT_ST    = ADDR_BASE_OFFSET >> ADDR_LSB;	
     localparam integer ADDR_INPUT_END   = (ADDR_BASE_OFFSET + 'h100) >> ADDR_LSB;	
-    
-    reg [AXI_DATA_WIDTH-1:0] in_data[0 : DATA_MEM_LENGTH - 1];
    
+    //axi slave module signals
+    //{{{ 
     wire [AXI_DATA_WIDTH-1:0] AXI_slave_write_data; 
     wire [3:0]                AXI_slave_write_strb; 
     wire [AXI_ADDR_WIDTH-1:0] AXI_slave_w_opt_addr; 
     wire AXI_slave_write_valid; 
 
-    reg  [AXI_DATA_WIDTH-1:0] AXI_slave_read_data; 
+    //reg  [AXI_DATA_WIDTH-1:0] AXI_slave_read_data; 
+    wire  [AXI_DATA_WIDTH-1:0] AXI_slave_read_data; 
     wire [AXI_ADDR_WIDTH-1:0] AXI_slave_r_opt_addr; 
-    wire  AXI_slave_read_req;
-    reg  AXI_slave_read_valid;
+    wire  AXI_slave_ar_flag;
+    //reg  AXI_slave_read_valid;
+    wire  AXI_slave_read_valid;
+    //}}}
+
+    //fifo signals
+    //{{{
+    wire fifo_read;
+    wire fifo_write;
+    wire fifo_empty;
+    wire fifo_full;
+    
+    wire [AXI_DATA_WIDTH-1:0] fifo_input_data;
+    wire [AXI_DATA_WIDTH-1:0] fifo_output_data;
+    
+    assign fifo_read = AXI_slave_rready & AXI_slave_rvalid;
+    assign fifo_write = data_r_valid_i;
+    assign fifo_input_data = data_r_rdata_i;
+    //}}}
 
 
     //Instantiation of AXI_slave_module 
@@ -157,7 +188,7 @@
 		.rvalid	        (AXI_slave_rvalid   ),
 		.rready	        (AXI_slave_rready   ),
         //}}}
-		
+	
         //eight useful signals
         .write_data(AXI_slave_write_data),
         .write_strb(AXI_slave_write_strb),
@@ -166,7 +197,7 @@
 
         .read_data(AXI_slave_read_data),
         .r_opt_addr(AXI_slave_r_opt_addr),
-        .read_req  (AXI_slave_read_req),
+        .ar_flag  (AXI_slave_ar_flag),
         .read_valid(AXI_slave_read_valid),
         
         .aw_ar_ready            (1), //slave mem, always ready to receive new instr
@@ -177,78 +208,65 @@
     ); 
     //}}}
 
-//read_data
-`define USE_COMB
-`undef USE_COMB
+    //Instantiation of fifo
+    fifo #(
+        .DATA_BITS (AXI_DATA_WIDTH),
+        .FIFO_LENGTH (8)
+    ) FIFO (
+        .input_data     (fifo_input_data),
+        .output_data    (fifo_output_data),
+        .read           (fifo_read),
+        .write          (fifo_write),
+        .empty          (fifo_empty),
+        .full           (fifo_full),
 
-`ifdef USE_COMB
-//组合逻辑，这个是最安全的。
-//{{{
-always @(AXI_slave_r_opt_addr or rst_n or AXI_slave_read_req) begin
-    if ( rst_n == 1'b0 ) begin
-        AXI_slave_read_data = 0;
-        AXI_slave_read_valid = 0;
+        
+        .clk                    (clk),
+		.reset                  (rst_n)
+    ); 
+
+
+
+    //assign data_req_o = AXI_slave_write_valid || (AXI_slave_ar_flag && rready);
+    assign data_req_o = AXI_slave_write_valid || AXI_slave_ar_flag ;
+    assign data_wen_o = AXI_slave_write_valid;
+    assign data_wdata_o = AXI_slave_write_data;
+    assign data_be_o = AXI_slave_write_strb;
+
+    assign AXI_slave_read_data = data_r_rdata_i;
+    assign AXI_slave_read_valid = data_r_valid_i;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+always @(*) begin
+    if (AXI_slave_write_valid == 1) begin
+        data_add_o = AXI_slave_w_opt_addr;
+    end
+    else if (AXI_slave_ar_flag) begin
+        data_add_o = AXI_slave_r_opt_addr;
     end
     else begin
-        if (AXI_slave_read_req == 1) begin
-            if (AXI_slave_w_opt_addr >= ADDR_INPUT_ST &&
-                AXI_slave_w_opt_addr < ADDR_INPUT_END
-            ) begin
-                AXI_slave_read_data = in_data[AXI_slave_r_opt_addr - ADDR_INPUT_ST];
-                AXI_slave_read_valid = 1;
-            end
-        end
-        else begin
-            AXI_slave_read_valid = 0;
-        end
+        data_add_o = 0;
     end
 end
-//}}}
-
-`else
-//时序逻辑，
-//{{{
-always @(posedge clk) begin
-    if ( rst_n == 1'b0 ) begin
-        AXI_slave_read_data <= 0;
-        AXI_slave_read_valid <= 0;
-    end
-    else begin
-        if (AXI_slave_read_req == 1) begin
-            if (AXI_slave_w_opt_addr >= ADDR_INPUT_ST &&
-                AXI_slave_w_opt_addr < ADDR_INPUT_END
-            ) begin
-                AXI_slave_read_data <= in_data[AXI_slave_r_opt_addr - ADDR_INPUT_ST];
-                AXI_slave_read_valid <= 1;
-            end
-        end
-        else begin
-            AXI_slave_read_valid <= 0;
-        end
-    end
-end
-//}}}
-`endif
-
-//in_data
-//{{{
-always @( posedge clk ) begin
-    if ( rst_n == 1'b0 ) begin
-        for (integer i = 0; i < DATA_MEM_LENGTH; i = i + 1) begin
-            in_data[i] <= 0;
-        end
-    end
-    else begin
-        if (AXI_slave_write_valid == 1) begin
-            if (AXI_slave_w_opt_addr >= ADDR_INPUT_ST &&
-                AXI_slave_w_opt_addr < ADDR_INPUT_END
-            ) begin
-                in_data[AXI_slave_w_opt_addr - ADDR_INPUT_ST] <= AXI_slave_write_data;
-            end
-        end
-    end
-end
-//}}}
-
 
 endmodule
