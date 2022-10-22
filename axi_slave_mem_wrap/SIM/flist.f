@@ -14,7 +14,9 @@
 ../../FIFO/RTL/fifo.v
 
 ../RTL/axi_slave_mem_wrap.v
-#../../AXI_slave_module/RTL/AXI_slave.v
+../../AXI_slave_module/RTL/AXI_slave.v
+../../AXI_slave_module/RTL/AXI_slave_AR_module.v
+../../AXI_slave_module/RTL/AXI_slave_AW_module.v
 #../../AXI_master_module/RTL/AXI_master.v
 
 

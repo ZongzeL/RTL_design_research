@@ -198,6 +198,7 @@ always @(*) begin
         (instr_arlen_cntr_in <= instr_arlen)
     ) begin
         read_req = 1;
+    end
     else begin
         read_req = 0;
     end

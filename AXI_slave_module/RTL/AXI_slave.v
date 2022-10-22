@@ -21,6 +21,8 @@ slave接了那个aw/ar，就要忠实的翻译成对应的r/w_opt_addr，至于t
         parameter integer OPT_MEM_ADDR_BITS     = $clog2(DATA_MEM_LENGTH),
 	    parameter integer ADDR_LSB = $clog2(AXI_DATA_WIDTH/8), //2
         parameter integer ADDR_BASE_OFFSET = 0,
+        
+        parameter integer AR_FIFO_LENGTH = 4,
 
 	    parameter integer ADDR_ST  = 'h0 + ADDR_BASE_OFFSET,
 	    parameter integer ADDR_END  = 'h400 + ADDR_BASE_OFFSET
@@ -165,6 +167,7 @@ slave接了那个aw/ar，就要忠实的翻译成对应的r/w_opt_addr，至于t
 		.AXI_DATA_WIDTH	        (AXI_DATA_WIDTH	     ), 
 		.AXI_ADDR_WIDTH	        (AXI_ADDR_WIDTH	     ), 
         .ADDR_BASE_OFFSET       (ADDR_BASE_OFFSET),
+        .FIFO_LENGTH            (AR_FIFO_LENGTH),
         .ADDR_ST                (ADDR_ST),
         .ADDR_END               (ADDR_END)
 

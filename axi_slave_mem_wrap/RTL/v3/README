@@ -1,0 +1,1 @@
+这个东西应该算最终形态，用AXI_slave_module，随意拿，fifo depth最小可以到1. 里面只要把AXI_slave_module的读写信号连到CPU类型的数据读写信号上就可以。不需要任何逻辑。

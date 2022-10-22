@@ -128,7 +128,8 @@ module pure_axi_test_tb #(
     //{{{
     axi_slave_mem_wrap #(
 		.AXI_ID_WIDTH	        (ID_WIDTH	     ), 
-		.AXI_DATA_WIDTH	        (DATA_WIDTH	     ), 
+		.AXI_DATA_WIDTH	        (DATA_WIDTH	     ),
+        .AXI_AR_FIFO_LENGTH     (1), 
 		.AXI_ADDR_WIDTH	        (ADDR_WIDTH	     ) 
     ) AXI_SLAVE_MEM_WRAP (
         //axi slave data
@@ -268,7 +269,11 @@ initial begin
     axi_bus_master_driver.OUTPUT_DATA_ONE_ROUND(clk, output_list, 0, 20);
 
     show_list_four_byte (output_list, 0, 20, "output", 8);
-    /*
+    
+    for (i = 0; i < 50; i ++) begin
+        @(posedge clk);
+    end
+    
     for (i = 0; i < 20; i ++) begin
         axi_bus_master_driver.OUTPUT_DATA_ONE_ROUND(clk, output_list, i, 1);
 
@@ -276,7 +281,6 @@ initial begin
     
         @(posedge clk);
     end
-    */
 
 
 end
