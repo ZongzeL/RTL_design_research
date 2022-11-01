@@ -5,7 +5,7 @@ longint unsigned clock_counter;
 
 module TB_memory_bus;
 
-    parameter N_CH0           = 2;  //--> Debug, UdmaTX, UdmaRX, IcacheR5, DataR5
+    parameter N_CH0           = 1;  //--> Debug, UdmaTX, UdmaRX, IcacheR5, DataR5
     parameter N_SLAVE         = 2;
     parameter ID_WIDTH        = N_CH0;
     parameter ADDR_WIDTH      = 32;
@@ -23,14 +23,14 @@ module TB_memory_bus;
     //{{{
 
     // ---------------- Master SIDE (Interleaved) --------------------------
-    reg  [N_CH0-1:0]                        data_req_TGEN;
-    reg  [N_CH0-1:0][ADDR_IN_WIDTH-1:0]     data_add_TGEN;
-    reg  [N_CH0-1:0]                        data_wen_TGEN;
-    reg  [N_CH0-1:0][DATA_WIDTH-1:0]        data_wdata_TGEN;
-    reg  [N_CH0-1:0][BE_WIDTH-1:0]          data_be_TGEN;
-    wire [N_CH0-1:0]                        data_gnt_TGEN;
-    wire [N_CH0-1:0]                        data_r_valid_TGEN;
-    wire [N_CH0-1:0][DATA_WIDTH-1:0]        data_r_rdata_TGEN;
+    reg                          data_req_TGEN;
+    reg  [ADDR_IN_WIDTH-1:0]     data_add_TGEN;
+    reg                          data_wen_TGEN;
+    reg  [DATA_WIDTH-1:0]        data_wdata_TGEN;
+    reg  [BE_WIDTH-1:0]          data_be_TGEN;
+    wire                         data_gnt_TGEN;
+    wire                         data_r_valid_TGEN;
+    wire [DATA_WIDTH-1:0]        data_r_rdata_TGEN;
 
 
     // ---------------- Memeory SIDE (Interleaved) --------------------------
@@ -40,12 +40,10 @@ module TB_memory_bus;
     wire [N_SLAVE-1:0][DATA_WIDTH-1:0]            data_wdata_MEM;          // Data request Wrire data
     wire [N_SLAVE-1:0][BE_WIDTH-1:0]              data_be_MEM;             // Data request Byte enable
     wire [N_SLAVE-1:0][ID_WIDTH-1:0]              data_ID_MEM;
-    wire [N_SLAVE-1:0]                            data_gnt_MEM;
 
     wire  [N_SLAVE-1:0]                            data_r_valid_MEM;
-    wire  [N_SLAVE-1:0]                            data_r_gnt_MEM;
     wire  [N_SLAVE-1:0][DATA_WIDTH-1:0]            data_r_rdata_MEM;        // Data Response DATA (For LOAD commands)
-    reg  [N_SLAVE-1:0][ID_WIDTH-1:0]              data_r_ID_MEM;
+    wire  [N_SLAVE-1:0][ID_WIDTH-1:0]              data_r_ID_MEM;
     //}}}
 
     //BRAM signals
@@ -58,10 +56,10 @@ module TB_memory_bus;
     //}}}
 
     //instantiation of XBAR_L2
-    XBAR_L2
+    one_master_two_slave_XBAR_L2_wrap
     //{{{
     #(
-        .N_CH0          ( N_CH0           ), // = 5,  //--> Debug, UdmaTX, UdmaRX, IcacheR5, DataR5
+        .N_MASTER       ( N_CH0           ), // = 5,  //--> Debug, UdmaTX, UdmaRX, IcacheR5, DataR5
         .N_SLAVE        ( N_SLAVE         ), // = 4,
         .ID_WIDTH       ( ID_WIDTH        ), // = N_CH0,
         .ADDR_WIDTH     ( ADDR_WIDTH      ), // = 32,
@@ -72,26 +70,37 @@ module TB_memory_bus;
     DUT_i
     (
         // ---------------- MASTER CH0 SIDE  --------------------------
-        .data_req_i             ( data_req_TGEN     ), // Data request
-        .data_add_i             ( data_add_TGEN     ), // Data request Address
-        .data_wen_i             ( data_wen_TGEN     ), // Data request type : 0--> Store 1 --> Load
-        .data_wdata_i           ( data_wdata_TGEN   ), // Data request Write data
-        .data_be_i              ( data_be_TGEN      ), // Data request Byte enable
-        .data_gnt_o             ( data_gnt_TGEN     ), // Grant Incoming Request
-        .data_r_valid_o         ( data_r_valid_TGEN ), // Data Response Valid (For LOAD/STORE commands)
-        .data_r_rdata_o         ( data_r_rdata_TGEN ), // Data Response DATA (For LOAD commands)
+        .data_req_M_i_0             ( data_req_TGEN     ), // Data request
+        .data_add_M_i_0             ( data_add_TGEN     ), // Data request Address
+        .data_wen_M_i_0             ( data_wen_TGEN     ), // Data request type : 0--> Store 1 --> Load
+        .data_wdata_M_i_0           ( data_wdata_TGEN   ), // Data request Write data
+        .data_be_M_i_0              ( data_be_TGEN      ), // Data request Byte enable
+        .data_gnt_M_o_0             ( data_gnt_TGEN     ), // Grant Incoming Request
+        .data_r_valid_M_o_0         ( data_r_valid_TGEN ), // Data Response Valid (For LOAD/STORE commands)
+        .data_r_rdata_M_o_0         ( data_r_rdata_TGEN ), // Data Response DATA (For LOAD commands)
 
         // ---------------- MM_SIDE (Interleaved) --------------------------
-        .data_req_o             ( data_req_MEM        ), // Data request
-        .data_add_o             ( data_add_MEM        ), // Data request Address
-        .data_wen_o             ( data_wen_MEM        ), // Data request type : 0--> Store 1 --> Load
-        .data_wdata_o           ( data_wdata_MEM      ), // Data request Wrire data
-        .data_be_o              ( data_be_MEM         ), // Data request Byte enable
-        .data_ID_o              ( data_ID_MEM         ),
+        .data_req_S_o_0             ( data_req_MEM[0]        ), // Data request
+        .data_add_S_o_0             ( data_add_MEM[0]        ), // Data request Address
+        .data_wen_S_o_0             ( data_wen_MEM[0]        ), // Data request type : 0--> Store 1 --> Load
+        .data_wdata_S_o_0           ( data_wdata_MEM[0]      ), // Data request Wrire data
+        .data_be_S_o_0              ( data_be_MEM[0]         ), // Data request Byte enable
+        .data_ID_S_o_0              ( data_ID_MEM[0]         ),
 
-        .data_r_valid_i         ( data_r_valid_MEM    ),
-        .data_r_rdata_i         ( data_r_rdata_MEM    ), // Data Response DATA (For LOAD commands)
-        .data_r_ID_i            ( data_r_ID_MEM       ),
+        .data_r_valid_S_i_0         ( data_r_valid_MEM[0]    ),
+        .data_r_rdata_S_i_0         ( data_r_rdata_MEM[0]    ), // Data Response DATA (For LOAD commands)
+        .data_r_ID_S_i_0            ( data_r_ID_MEM[0]       ),
+        
+        .data_req_S_o_1             ( data_req_MEM[1]        ), // Data request
+        .data_add_S_o_1             ( data_add_MEM[1]        ), // Data request Address
+        .data_wen_S_o_1             ( data_wen_MEM[1]        ), // Data request type : 0--> Store 1 --> Load
+        .data_wdata_S_o_1           ( data_wdata_MEM[1]      ), // Data request Wrire data
+        .data_be_S_o_1              ( data_be_MEM[1]         ), // Data request Byte enable
+        .data_ID_S_o_1              ( data_ID_MEM[1]         ),
+
+        .data_r_valid_S_i_1         ( data_r_valid_MEM[1]    ),
+        .data_r_rdata_S_i_1         ( data_r_rdata_MEM[1]    ), // Data Response DATA (For LOAD commands)
+        .data_r_ID_S_i_1            ( data_r_ID_MEM[1]       ),
 
         .clk                    ( clk                 ),
         .rst_n                  ( rst_n               )
@@ -111,9 +120,10 @@ module TB_memory_bus;
         .data_wen_i             ( data_wen_MEM[0]                         ), // Data request type : 0--> Store 1 --> Load
         .data_wdata_i           ( data_wdata_MEM[0][DATA_WIDTH-1:0]       ), // Data request Write data
         .data_be_i              ( data_be_MEM[0][BE_WIDTH-1:0]            ), // Data request Byte enable
-        .data_gnt_o             ( data_gnt_MEM[0]                         ), // Grant Incoming Request
+        .data_ID_i              ( data_ID_MEM[0]                         ), // Grant Incoming Request
         .data_r_valid_o         ( data_r_valid_MEM[0]                     ), // Data Response Valid (For LOAD/STORE commands)
         .data_r_rdata_o         ( data_r_rdata_MEM[0][DATA_WIDTH-1:0]     ), // Data Response DATA (For LOAD commands)
+        .data_r_ID_o            ( data_r_ID_MEM[0]                         ), // Grant Incoming Request
          
         .ADDRA_o                (ADDRA[0][ADDR_MEM_WIDTH - 1 : 0]         ),
         .DINA_o                 (DINA[0][DATA_WIDTH - 1 : 0]              ),
@@ -136,9 +146,10 @@ module TB_memory_bus;
         .data_wen_i             ( data_wen_MEM[1]                         ), // Data request type : 0--> Store 1 --> Load
         .data_wdata_i           ( data_wdata_MEM[1][DATA_WIDTH-1:0]       ), // Data request Write data
         .data_be_i              ( data_be_MEM[1][BE_WIDTH-1:0]            ), // Data request Byte enable
-        .data_gnt_o             ( data_gnt_MEM[1]                         ), // Grant Incoming Request
+        .data_ID_i              ( data_ID_MEM[1]                          ), // Grant Incoming Request
         .data_r_valid_o         ( data_r_valid_MEM[1]                     ), // Data Response Valid (For LOAD/STORE commands)
         .data_r_rdata_o         ( data_r_rdata_MEM[1][DATA_WIDTH-1:0]     ), // Data Response DATA (For LOAD commands)
+        .data_r_ID_o            ( data_r_ID_MEM[1]                        ), // Grant Incoming Request
          
         .ADDRA_o                (ADDRA[1][ADDR_MEM_WIDTH - 1 : 0]         ),
         .DINA_o                 (DINA[1][DATA_WIDTH - 1 : 0]              ),
@@ -190,7 +201,6 @@ initial begin
     data_be_TGEN  = 0;
 
     fetch_enable = 0;
-    data_r_ID_MEM = 0;
 
 
     for (i = 0; i < 20; i++) begin
@@ -200,10 +210,8 @@ initial begin
     //write
     //{{{
     master_0_write (0, 12'h0fe, 32'hdea0bee0);
-    master_1_write (1, 12'h0ab, 32'hbee1dea0);
     @(posedge clk);
     master_0_reset_0();
-    master_1_reset_0();
     //}}}
     
     //read
@@ -212,12 +220,10 @@ initial begin
         @(posedge clk);
     end
     
-    master_0_read(1, 12'h0ab);   
-    master_1_read(0, 12'h0fe);   
+    master_0_read(0, 12'h0fe);   
  
     @(posedge clk);
     master_0_reset_0();
-    master_1_reset_0();
     //}}}
 
 end
@@ -226,81 +232,53 @@ end
 //{{{
 task master_0_write (bit slave, bit[ADDR_MEM_WIDTH - 1:0] addr, bit[DATA_WIDTH -1:0] data);
 begin
-    data_add_TGEN[0][11:0] = addr;
-    data_add_TGEN[0][12:12] = slave;
-    data_req_TGEN[0] = 1;
-    data_wen_TGEN[0] = 1;
-    data_wdata_TGEN[0] = data;
-    data_be_TGEN[0]  = 4'hf;
-end
-endtask
-
-task master_1_write (bit slave, bit[ADDR_MEM_WIDTH - 1:0] addr, bit[DATA_WIDTH -1:0] data);
-begin
-    data_add_TGEN[1][11:0] = addr;
-    data_add_TGEN[1][12:12] = slave;
-
-    data_req_TGEN[1] = 1;
-    data_wen_TGEN[1] = 1;
-    data_wdata_TGEN[1] = data;
-    data_be_TGEN[1]  = 4'hf;
+    data_add_TGEN[11:0] <= addr;
+    data_add_TGEN[12:12] <= slave;
+    data_req_TGEN <= 1;
+    data_wen_TGEN <= 1;
+    data_wdata_TGEN <= data;
+    data_be_TGEN  <= 4'hf;
 end
 endtask
 
 task master_0_read (bit slave, bit[ADDR_MEM_WIDTH - 1:0] addr);
 begin
-    data_add_TGEN[0][11:0] = addr;
-    data_add_TGEN[0][12:12] = slave;
-    data_req_TGEN[0] = 1;
-    data_wen_TGEN[0] = 0;
-    data_wdata_TGEN[0] = 0;
-end
-endtask
-
-task master_1_read (bit slave, bit[ADDR_MEM_WIDTH - 1:0] addr);
-begin
-    data_add_TGEN[1][11:0] = addr;
-    data_add_TGEN[1][12:12] = slave;
-
-    data_req_TGEN[1] = 1;
-    data_wen_TGEN[1] = 0;
-    data_wdata_TGEN[1] = 0;
+    data_add_TGEN[11:0] <= addr;
+    data_add_TGEN[12:12] <= slave;
+    data_req_TGEN <= 1;
+    data_wen_TGEN <= 0;
+    data_wdata_TGEN <= 0;
 end
 endtask
 
 task master_0_reset_0 ();
 begin
-    data_add_TGEN[0][12:0] = 0; 
-    data_req_TGEN[0] = 0;
-    data_wen_TGEN[0] = 0;
-    data_wdata_TGEN[0] = 0;
-    data_be_TGEN[0]  = 0;
+    data_add_TGEN[12:0] <= 0; 
+    data_req_TGEN <= 0;
+    data_wen_TGEN <= 0;
+    data_wdata_TGEN <= 0;
+    data_be_TGEN  <= 0;
 end
 endtask
 
-task master_1_reset_0 (); 
-begin
-    data_add_TGEN[1][12:0] = 0;
-    data_req_TGEN[1] = 0; 
-    data_wen_TGEN[1] = 0;
-    data_wdata_TGEN[1] = 0;
-    data_be_TGEN[1]  = 0;
-end
-endtask
 //}}}
 
 
 
 
 always @(posedge clk) begin
-    if (data_r_valid_MEM[0] == 1) begin
+    if (data_req_MEM[0] == 1 && data_wen_MEM[0] == 1) begin
+        $display ("write mem 0 = %h", data_wdata_MEM[0:0]);
+    end
+    if (data_req_MEM[1] == 1 && data_wen_MEM[1] == 1) begin
+        $display ("write mem 0 = %h", data_wdata_MEM[1:1]);
+    end
+    if (data_r_valid_MEM == 1) begin
         $display ("read mem 0 = %h", data_r_rdata_MEM[0:0]);
     end
-
-    if (data_r_valid_MEM[1] == 1) begin
-        $display ("read mem 1 = %h", data_r_rdata_MEM[1:1]);
+    if (data_r_valid_TGEN == 1) begin
+        $display ("read bus = %h", data_r_rdata_TGEN[31:0]);
     end
-
 end
 
 //rst_n

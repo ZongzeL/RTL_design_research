@@ -9,7 +9,8 @@
 
 #axi design
 
-../../BRAM_module/BRAM_wrap/BRAM_wrap.v
+../../BRAM_module/BRAM_wrap/BRAM_wrap_single.v
+../../BRAM_module/BRAM_wrap/BRAM_wrap_four_byte.v
 ../../BRAM_module/RTL/bram.v
 ../../FIFO/RTL/fifo.v
 
@@ -20,5 +21,5 @@
 #../../AXI_master_module/RTL/AXI_master.v
 
 
-./axi_test.sv
+./axi_test_four_byte_mem.sv
 

@@ -9,6 +9,7 @@
 
 #top design
 ../../L2_tcdm_hybrid_interco/RTL/XBAR_L2/XBAR_L2.sv
+../../L2_tcdm_hybrid_interco/RTL/XBAR_L2/one_master_two_slave_XBAR_L2_wrap.v
 #../../L2_tcdm_hybrid_interco/RTL/XBAR_L2/XBAR_L2.v
 ../../L2_tcdm_hybrid_interco/RTL/XBAR_L2/RequestBlock_L2_1CH.sv     
 ../../L2_tcdm_hybrid_interco/RTL/XBAR_L2/ArbitrationTree_L2.sv      
@@ -22,6 +23,7 @@
 ../../L2_tcdm_hybrid_interco/RTL/XBAR_L2/FanInPrimitive_Resp_L2.sv  
 
 ../../BRAM_module/BRAM_wrap/BRAM_wrap_single.v
+../../BRAM_module/BRAM_wrap/BRAM_wrap_four_byte.v
 ../../BRAM_module/RTL/bram.v
 
 #tb

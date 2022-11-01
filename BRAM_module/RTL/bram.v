@@ -9,6 +9,7 @@ Doc: pg058-blk-mem-gen.pdf
 `timescale 1 ns / 1 ps
 
 module blk_mem_gen_0 #
+//{{{
 (
     parameter integer DATA_WIDTH	= 64,
     parameter integer ADDR_WIDTH	= 10,
@@ -27,8 +28,8 @@ module blk_mem_gen_0 #
 );
 
     reg [DATA_WIDTH - 1 : 0] data_mem [MEM_LENGTH - 1 : 0];
-    reg [DATA_WIDTH - 1 : 0] addr_buff_0; 
-    reg [DATA_WIDTH - 1 : 0] addr_buff_1;
+    reg [ADDR_WIDTH - 1 : 0] addr_buff_0; 
+    reg [ADDR_WIDTH - 1 : 0] addr_buff_1;
     
     assign DOUTA = data_mem[addr_buff_1];
 
@@ -51,8 +52,10 @@ end
 
 
 endmodule
+//}}}
 
 module blk_mem_gen_1 #
+//{{{
 (
     parameter integer DATA_WIDTH	= 64,
     parameter integer ADDR_WIDTH	= 10,
@@ -78,6 +81,62 @@ always @(posedge CLKA) begin
         data_mem[ADDRA] <= DINA;
     end
 end
+endmodule
+//}}}
+
+
+module blk_mem_gen_four_byte #
+//{{{
+(
+    parameter integer DATA_WIDTH	= 64,
+    parameter integer ADDR_WIDTH	= 32,
+    parameter integer MEM_LENGTH	= 16
+)
+(
+
+    input [ADDR_WIDTH - 1 : 0] ADDRA,
+    input CLKA,
+    input [DATA_WIDTH - 1 : 0] DINA,
+    output wire [DATA_WIDTH - 1 : 0] DOUTA,
+    input ENA,
+    input [3:0] WEA
+
+
+);
+
+    reg [DATA_WIDTH - 1 : 0] data_mem [MEM_LENGTH - 1 : 0];
+    reg [ADDR_WIDTH - 1 : 0] addr_buff_0; 
+    reg [ADDR_WIDTH - 1 : 0] addr_buff_1;
+    
+    assign DOUTA = data_mem[addr_buff_1>>2];
+
+
+always @(posedge CLKA) begin
+    if (ENA == 1 && WEA[0:0] == 1) begin
+        data_mem[ADDRA>>2][7:0] <= DINA[7:0];
+    end
+    if (ENA == 1 && WEA[1:1] == 1) begin
+        data_mem[ADDRA>>2][15:8] <= DINA[15:8];
+    end
+    if (ENA == 1 && WEA[2:2] == 1) begin
+        data_mem[ADDRA>>2][23:16] <= DINA[23:16];
+    end
+    if (ENA == 1 && WEA[3:3] == 1) begin
+        data_mem[ADDRA>>2][31:24] <= DINA[31:24];
+    end
+end
+
+
+always @(posedge CLKA) begin
+    addr_buff_0 <= ADDRA;
+end
+
+always @(posedge CLKA) begin
+    addr_buff_1 <= addr_buff_0;
+end
+
 
 
 endmodule
+//}}}
+

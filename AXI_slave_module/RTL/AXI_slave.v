@@ -25,7 +25,8 @@ slave接了那个aw/ar，就要忠实的翻译成对应的r/w_opt_addr，至于t
         parameter integer AR_FIFO_LENGTH = 4,
 
 	    parameter integer ADDR_ST  = 'h0 + ADDR_BASE_OFFSET,
-	    parameter integer ADDR_END  = 'h400 + ADDR_BASE_OFFSET
+	    //parameter integer ADDR_END  = 'h400 + ADDR_BASE_OFFSET
+	    parameter integer ADDR_END  = 'h10000 + ADDR_BASE_OFFSET //can totally access 65536 * 4 bytes
     )
 	(
 

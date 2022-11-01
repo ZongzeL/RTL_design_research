@@ -83,8 +83,8 @@
         //}}}
 	);
 
-    localparam integer ADDR_INPUT_ST    = ADDR_BASE_OFFSET >> ADDR_LSB;	
-    localparam integer ADDR_INPUT_END   = (ADDR_BASE_OFFSET + 'h100) >> ADDR_LSB;	
+    localparam integer ADDR_INPUT_ST    = (ADDR_BASE_OFFSET + ADDR_ST ) >> ADDR_LSB;	
+    localparam integer ADDR_INPUT_END   = (ADDR_BASE_OFFSET + ADDR_END) >> ADDR_LSB;	
     
     reg [AXI_DATA_WIDTH-1:0] in_data[0 : DATA_MEM_LENGTH - 1];
    

@@ -11,7 +11,7 @@ module pure_axi_test_tb #(
     parameter integer AXI_ADDR_WIDTH	= 32,
     parameter integer AXI_USER_WIDTH	= 10,
     
-    parameter integer AXI_MEM_LENGTH	= 32,
+    parameter integer AXI_MEM_LENGTH	= 8192,
     parameter integer ADDR_LSB          = 2, 
 
     parameter TB_RESET_VALUE = 0
@@ -116,6 +116,8 @@ module pure_axi_test_tb #(
 		.AXI_ID_WIDTH	        (AXI_ID_WIDTH	     ), 
 		.AXI_DATA_WIDTH	        (AXI_DATA_WIDTH	     ), 
 		.AXI_ADDR_WIDTH	        (AXI_ADDR_WIDTH	     ),
+        .DATA_MEM_LENGTH        (AXI_MEM_LENGTH),
+        .ADDR_END               ('h10000),
         .ADDR_BASE_OFFSET       (0) 
     ) AXI_SLAVE_MEM_DEVICE (
         //axi slave data
@@ -193,8 +195,8 @@ initial begin
     @(posedge clk);
     @(posedge clk);
     
-    input_addr = 0;
-    output_addr = 0;
+    input_addr = 4096;
+    output_addr = 4096;
     
 
     axi_bus_master_driver.INPUT_DATA_ONE_ROUND(clk, input_list, input_addr, 16);

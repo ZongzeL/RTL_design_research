@@ -97,11 +97,11 @@ module pure_axi_test_tb #(
     
     //BRAM signals
     //{{{
-    wire [ADDR_WIDTH - 1 : 0]          ADDRA;
+    wire [31 : 0]          ADDRA;
     wire [DATA_WIDTH - 1 : 0]          DINA;
     wire [DATA_WIDTH - 1 : 0]          DOUTA;
     wire                               ENA;
-    wire                               WEA;
+    wire [3:0]                         WEA;
     //}}}
 
 
@@ -134,50 +134,50 @@ module pure_axi_test_tb #(
     ) AXI_SLAVE_MEM_WRAP (
         //axi slave data
         //{{{
-		.awid         (axi_full_master_interface.aw_id    ),
-		.awaddr       (axi_full_master_interface.aw_addr),
-		.awlen        (axi_full_master_interface.aw_len   ),
-		.awsize       (axi_full_master_interface.aw_size  ),
-		.awburst      (axi_full_master_interface.aw_burst ),
-		.awlock       (axi_full_master_interface.aw_lock  ),
-		.awcache      (axi_full_master_interface.aw_cache ),
-		.awprot       (axi_full_master_interface.aw_prot  ),
-		.awqos        (axi_full_master_interface.aw_qos   ),
-		.awregion     (axi_full_master_interface.aw_region),
-		.awuser       (axi_full_master_interface.aw_user  ),
-		.awvalid      (axi_full_master_interface.aw_valid ),
-		.awready      (axi_full_master_interface.aw_ready ),
-		.wdata        (axi_full_master_interface.w_data    ),
-		.wstrb        (axi_full_master_interface.w_strb    ),
-		.wlast        (axi_full_master_interface.w_last    ),
-		.wuser        (axi_full_master_interface.w_user    ),
-		.wvalid	    (axi_full_master_interface.w_valid   ),
-		.wready	    (axi_full_master_interface.w_ready   ),
-		.bid		    (axi_full_master_interface.b_id	    ),
-		.bresp		(axi_full_master_interface.b_resp	),
-		.buser		(axi_full_master_interface.b_user	),
-		.bvalid	    (axi_full_master_interface.b_valid   ),
-		.bready	    (axi_full_master_interface.b_ready   ),
-		.arid		    (axi_full_master_interface.ar_id	    ),
-		.araddr	    (axi_full_master_interface.ar_addr   ),
-		.arlen		(axi_full_master_interface.ar_len	),
-		.arsize	    (axi_full_master_interface.ar_size   ),
-		.arburst	    (axi_full_master_interface.ar_burst  ),
-		.arlock	    (axi_full_master_interface.ar_lock   ),
-		.arcache	    (axi_full_master_interface.ar_cache  ),
-		.arprot	    (axi_full_master_interface.ar_prot   ),
-		.arqos		(axi_full_master_interface.ar_qos	),
-		.arregion	    (axi_full_master_interface.ar_region ),
-		.aruser	    (axi_full_master_interface.ar_user   ),
-		.arvalid	    (axi_full_master_interface.ar_valid  ),
-		.arready	    (axi_full_master_interface.ar_ready  ),
-		.rid		    (axi_full_master_interface.r_id	    ),
-		.rdata		(axi_full_master_interface.r_data	),
-		.rresp		(axi_full_master_interface.r_resp	),
-		.rlast		(axi_full_master_interface.r_last	),
-		.ruser		(axi_full_master_interface.r_user	),
-		.rvalid	    (axi_full_master_interface.r_valid   ),
-		.rready	    (axi_full_master_interface.r_ready   ),
+		.AXI_slave_awid         (axi_full_master_interface.aw_id    ),
+		.AXI_slave_awaddr       (axi_full_master_interface.aw_addr),
+		.AXI_slave_awlen        (axi_full_master_interface.aw_len   ),
+		.AXI_slave_awsize       (axi_full_master_interface.aw_size  ),
+		.AXI_slave_awburst      (axi_full_master_interface.aw_burst ),
+		.AXI_slave_awlock       (axi_full_master_interface.aw_lock  ),
+		.AXI_slave_awcache      (axi_full_master_interface.aw_cache ),
+		.AXI_slave_awprot       (axi_full_master_interface.aw_prot  ),
+		.AXI_slave_awqos        (axi_full_master_interface.aw_qos   ),
+		.AXI_slave_awregion     (axi_full_master_interface.aw_region),
+		.AXI_slave_awuser       (axi_full_master_interface.aw_user  ),
+		.AXI_slave_awvalid      (axi_full_master_interface.aw_valid ),
+		.AXI_slave_awready      (axi_full_master_interface.aw_ready ),
+		.AXI_slave_wdata        (axi_full_master_interface.w_data    ),
+		.AXI_slave_wstrb        (axi_full_master_interface.w_strb    ),
+		.AXI_slave_wlast        (axi_full_master_interface.w_last    ),
+		.AXI_slave_wuser        (axi_full_master_interface.w_user    ),
+		.AXI_slave_wvalid	    (axi_full_master_interface.w_valid   ),
+		.AXI_slave_wready	    (axi_full_master_interface.w_ready   ),
+		.AXI_slave_bid		    (axi_full_master_interface.b_id	    ),
+		.AXI_slave_bresp		(axi_full_master_interface.b_resp	),
+		.AXI_slave_buser		(axi_full_master_interface.b_user	),
+		.AXI_slave_bvalid	    (axi_full_master_interface.b_valid   ),
+		.AXI_slave_bready	    (axi_full_master_interface.b_ready   ),
+		.AXI_slave_arid		    (axi_full_master_interface.ar_id	    ),
+		.AXI_slave_araddr	    (axi_full_master_interface.ar_addr   ),
+		.AXI_slave_arlen		(axi_full_master_interface.ar_len	),
+		.AXI_slave_arsize	    (axi_full_master_interface.ar_size   ),
+		.AXI_slave_arburst	    (axi_full_master_interface.ar_burst  ),
+		.AXI_slave_arlock	    (axi_full_master_interface.ar_lock   ),
+		.AXI_slave_arcache	    (axi_full_master_interface.ar_cache  ),
+		.AXI_slave_arprot	    (axi_full_master_interface.ar_prot   ),
+		.AXI_slave_arqos		(axi_full_master_interface.ar_qos	),
+		.AXI_slave_arregion	    (axi_full_master_interface.ar_region ),
+		.AXI_slave_aruser	    (axi_full_master_interface.ar_user   ),
+		.AXI_slave_arvalid	    (axi_full_master_interface.ar_valid  ),
+		.AXI_slave_arready	    (axi_full_master_interface.ar_ready  ),
+		.AXI_slave_rid		    (axi_full_master_interface.r_id	    ),
+		.AXI_slave_rdata		(axi_full_master_interface.r_data	),
+		.AXI_slave_rresp		(axi_full_master_interface.r_resp	),
+		.AXI_slave_rlast		(axi_full_master_interface.r_last	),
+		.AXI_slave_ruser		(axi_full_master_interface.r_user	),
+		.AXI_slave_rvalid	    (axi_full_master_interface.r_valid   ),
+		.AXI_slave_rready	    (axi_full_master_interface.r_ready   ),
         //}}}
 
 
@@ -199,7 +199,7 @@ module pure_axi_test_tb #(
     
     //instantiation of BRAM_wrap
     //{{{
-    BRAM_wrap
+    BRAM_wrap_four_byte
     #(
         .ID_WIDTH       ( ID_WIDTH        ), // = N_CH0,
         .ADDR_WIDTH     ( ADDR_WIDTH      ), // = 32,
@@ -214,11 +214,11 @@ module pure_axi_test_tb #(
         .data_r_valid_o         ( data_r_valid_MEM                     ), // Data Response Valid (For LOAD/STORE commands)
         .data_r_rdata_o         ( data_r_rdata_MEM[DATA_WIDTH-1:0]     ), // Data Response DATA (For LOAD commands)
          
-        .ADDRA_o                (ADDRA[ADDR_WIDTH - 1 : 0]             ),
+        .ADDRA_o                (ADDRA[31 : 0]             ),
         .DINA_o                 (DINA[DATA_WIDTH - 1 : 0]              ),
         .DOUTA_i                (DOUTA[DATA_WIDTH - 1 : 0]             ),
         .ENA_o                  (ENA),
-        .WEA_o                  (WEA),
+        .WEA_o                  (WEA[3:0]),
         
         .clk                    ( clk                 ),
         .rst_n                  ( reset               )
@@ -227,16 +227,16 @@ module pure_axi_test_tb #(
 
     //instantiation of BRAM 
     //{{{
-    blk_mem_gen_0 #(
+    blk_mem_gen_four_byte #(
         .DATA_WIDTH (DATA_WIDTH),
         .ADDR_WIDTH (ADDR_WIDTH),
         .MEM_LENGTH ($pow(2, ADDR_WIDTH))
     ) BRAM_0 (
-        .ADDRA   (ADDRA[ADDR_WIDTH - 1 : 0]             ),
+        .ADDRA   (ADDRA[31 : 0]             ),
         .DINA    (DINA[DATA_WIDTH - 1 : 0]              ),
         .DOUTA   (DOUTA[DATA_WIDTH - 1 : 0]             ),
         .ENA     (ENA),
-        .WEA     (WEA),
+        .WEA     (WEA[3:0]),
         .CLKA    (clk)
     );
     //}}}

@@ -1,0 +1,4 @@
+10/31/22 
+This is the FPGA exp sim. FPGA run failed, use this to debug.
+
+One AXI slave HWPE driver, one HWPE bus 1_master_2_slave_wrap, two bram models. 
