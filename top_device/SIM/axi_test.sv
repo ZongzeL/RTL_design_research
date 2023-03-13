@@ -217,7 +217,6 @@ module pure_axi_test_tb #(
 
         .clk                    (clk),
 		.rst_n                  (reset)
-        //}}}
         
     ); 
     //}}}

@@ -1,8 +1,0 @@
-These experiments are using:
-    AXI_slave_mem_wrap
-    HWPE_BRAM_wrap
-    BRAM model
-
-    No HWPE bus. 
-Have both four byte BRAM and single BRAM test
-  

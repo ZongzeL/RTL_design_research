@@ -1,1 +1,0 @@
-这个东西是使用AXI slave module直接访问memory，有两个cycle的延迟。
